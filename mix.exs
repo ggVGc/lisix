@@ -1,11 +1,11 @@
-defmodule Lispix.MixProject do
+defmodule Lisix.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :lispix,
+      app: :lisix,
       version: "0.1.0",
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
