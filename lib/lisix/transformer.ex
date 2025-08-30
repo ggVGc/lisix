@@ -50,16 +50,14 @@ defmodule Lisix.Transformer do
         # For now, just transform the inner expression
         transform_expr(expr, env)
       
-      # Variables
+      # Variables and macro/function references
       atom when is_atom(atom) ->
-        cond do
-          atom == :__MODULE__ ->
-            {:__MODULE__, [], Elixir}
-          Map.has_key?(env, atom) ->
-            Macro.var(atom, nil)
-          true ->
-            # Could be a function reference
-            atom
+        if Map.has_key?(env, atom) do
+          # Known variables become var nodes
+          Macro.var(atom, nil)
+        else
+          # Everything else becomes potential macro/function call - let Elixir decide
+          {atom, [], nil}
         end
       
       # S-expressions (function calls and special forms)
