@@ -54,7 +54,7 @@ defmodule Lisix.Transformer do
       atom when is_atom(atom) ->
         cond do
           atom == :__MODULE__ ->
-            quote do: __MODULE__
+            {:__MODULE__, [], Elixir}
           Map.has_key?(env, atom) ->
             Macro.var(atom, nil)
           true ->

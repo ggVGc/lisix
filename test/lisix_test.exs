@@ -344,13 +344,11 @@ defmodule LisixTest do
         use GenServer
         import Lisix.Sigil
 
-        # Client API using regular Elixir (simpler for __MODULE__ and keyword args)
-        def start_link do
-          GenServer.start_link(__MODULE__, 0, name: __MODULE__)
-        end
-
-        # All other functions implemented in one large Lisix sigil block
+        # All functions implemented in one large Lisix sigil block
         ~L"""
+        (defn start_link []
+          (GenServer.start_link __MODULE__ 0 [{:name __MODULE__}]))
+
         (defn increment []
           (GenServer.call __MODULE__ :increment))
 
