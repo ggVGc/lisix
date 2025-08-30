@@ -124,11 +124,32 @@ defmodule Lisix.Tokenizer do
     tokenize_impl(remaining, [{:keyword, keyword} | acc])
   end
   
+  # Error handling for unsupported characters - prevents infinite loops
+  defp tokenize_impl([char | _rest], _acc) when char in ~c"#$%^&=\\|<>?" do
+    raise "Unsupported character '#{<<char>>}' in Lisix input. " <>
+          "Supported syntax includes: () [] {} : ; ~ \" ' ` @ (for unquote) and alphanumeric symbols including + - * /"
+  end
+  
   # Symbols and special literals
   defp tokenize_impl(input, acc) do
+    original_input = input
     {symbol_chars, rest} = collect_symbol(input, [])
     
+    # Safety check: ensure we made progress to prevent infinite loops
+    if rest == original_input and symbol_chars == [] do
+      case input do
+        [char | _] -> 
+          raise "Invalid character '#{<<char>>}' (code: #{char}) - cannot form a valid symbol. " <>
+                "Character is not recognized as a delimiter or valid symbol character."
+        [] -> 
+          raise "Unexpected end of input while parsing symbol"
+      end
+    end
+    
     case symbol_chars |> Enum.reverse() |> to_string() do
+      "" -> 
+        # Empty symbol - this shouldn't happen if collect_symbol works correctly
+        raise "Empty symbol encountered - this indicates a tokenizer bug"
       "true" -> tokenize_impl(rest, [{:boolean, true} | acc])
       "false" -> tokenize_impl(rest, [{:boolean, false} | acc])
       "nil" -> tokenize_impl(rest, [{:nil} | acc])

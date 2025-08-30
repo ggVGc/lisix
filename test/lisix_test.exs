@@ -59,6 +59,30 @@ defmodule LisixTest do
         {:lparen}, {:symbol, :+}, {:number, 3.14}, {:number, -2.5}, {:rparen}
       ]
     end
+    
+    test "rejects unsupported characters with clear error messages" do
+      unsupported_chars = ["#", "$", "%", "^", "&", "=", "\\", "|", "<", ">", "?"]
+      
+      Enum.each(unsupported_chars, fn char ->
+        assert_raise RuntimeError, ~r/Unsupported character/, fn ->
+          Tokenizer.tokenize("(+ 1 #{char})")
+        end
+      end)
+    end
+    
+    test "prevents infinite loops with progress validation" do
+      # Test that we don't hang on edge cases that previously caused infinite loops
+      assert Tokenizer.tokenize("") == []
+      assert Tokenizer.tokenize("   ") == []
+      assert Tokenizer.tokenize("()") == [{:lparen}, {:rparen}]
+    end
+    
+    test "handles curly braces correctly" do
+      # Test that curly braces (which previously caused infinite loops) now work
+      assert Tokenizer.tokenize("{:key value}") == [
+        {:lbrace}, {:keyword, :key}, {:symbol, :value}, {:rbrace}
+      ]
+    end
   end
 
   describe "Parser" do
