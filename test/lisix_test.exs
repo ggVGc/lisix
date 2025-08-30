@@ -363,16 +363,19 @@ defmodule LisixTest do
         end
 
         # GenServer callbacks implemented completely using Lisix sigil
-        # Note: Using underscores to match Elixir naming convention
-        ~L"(defn handle_call [msg _from state] {:reply (+ state 1) (+ state 1)})"
+        ~L"(defn handle_call [:increment _from state]
+             (let [new-state (+ state 1)]
+               {:reply new-state new-state}))"
+
+        ~L"(defn handle_call [:get _from state]
+             {:reply state state})"
       end
 
       # Test that the GenServer with complete Lisix sigil handle_call functions works
       assert {:ok, _pid} = LisixBodyGenServer.start_link()
-      # Note: Our Lisix function always increments by 1 regardless of the message
-      assert LisixBodyGenServer.get_value() == 1  # First call increments 0 -> 1
-      assert LisixBodyGenServer.increment() == 2  # Second call increments 1 -> 2
-      assert LisixBodyGenServer.get_value() == 3  # Third call increments 2 -> 3
+      assert LisixBodyGenServer.get_value() == 0
+      assert LisixBodyGenServer.increment() == 1
+      assert LisixBodyGenServer.get_value() == 1
 
       # Clean up
       GenServer.stop(LisixBodyGenServer)

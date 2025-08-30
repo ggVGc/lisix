@@ -142,44 +142,37 @@ defmodule Lisix.Sigil do
 
   # Transform function definition in module context
   defp transform_module_defn(name, args, body) do
-    # Handle vector syntax and pattern matching
-    {arg_patterns, guards} = parse_args_and_guards(args)
+    # Simple approach: let Transformer handle all argument patterns
+    arg_patterns = case args do
+      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
+      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
+      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
+    end
+    
     transformed_body = Transformer.transform(body)
     
-    case guards do
-      nil ->
-        quote do
-          def unquote(name)(unquote_splicing(arg_patterns)) do
-            unquote(transformed_body)
-          end
-        end
-      guard_expr ->
-        quote do
-          def unquote(name)(unquote_splicing(arg_patterns)) when unquote(guard_expr) do
-            unquote(transformed_body)
-          end
-        end
+    quote do
+      def unquote(name)(unquote_splicing(arg_patterns)) do
+        unquote(transformed_body)
+      end
     end
   end
 
   # Transform private function definition
   defp transform_module_defp(name, args, body) do
-    {arg_patterns, guards} = parse_args_and_guards(args)
+    # Simple approach: let Transformer handle all argument patterns
+    arg_patterns = case args do
+      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
+      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
+      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
+    end
+    
     transformed_body = Transformer.transform(body)
     
-    case guards do
-      nil ->
-        quote do
-          defp unquote(name)(unquote_splicing(arg_patterns)) do
-            unquote(transformed_body)
-          end
-        end
-      guard_expr ->
-        quote do
-          defp unquote(name)(unquote_splicing(arg_patterns)) when unquote(guard_expr) do
-            unquote(transformed_body)
-          end
-        end
+    quote do
+      defp unquote(name)(unquote_splicing(arg_patterns)) do
+        unquote(transformed_body)
+      end
     end
   end
 
@@ -203,28 +196,31 @@ defmodule Lisix.Sigil do
 
   # Transform a single function clause
   defp transform_single_clause(name, args, body, def_type) do
-    {arg_patterns, guards} = parse_args_and_guards(args)
+    # Simple approach: let Transformer handle all argument patterns
+    arg_patterns = case args do
+      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
+      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
+      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
+    end
+    
     transformed_body = Transformer.transform(body)
     
-    case guards do
-      nil ->
-        quote do
-          unquote(def_type)(unquote(name)(unquote_splicing(arg_patterns))) do
-            unquote(transformed_body)
-          end
-        end
-      guard_expr ->
-        quote do
-          unquote(def_type)(unquote(name)(unquote_splicing(arg_patterns))) when unquote(guard_expr) do
-            unquote(transformed_body)
-          end
-        end
+    quote do
+      unquote(def_type)(unquote(name)(unquote_splicing(arg_patterns))) do
+        unquote(transformed_body)
+      end
     end
   end
 
   # Transform a single function clause with explicit guard
   defp transform_single_clause_with_guard(name, args, guard, body, def_type) do
-    {arg_patterns, _} = parse_args_and_guards(args)
+    # Simple approach: let Transformer handle all argument patterns
+    arg_patterns = case args do
+      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
+      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
+      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
+    end
+    
     guard_expr = Transformer.transform(guard)
     transformed_body = Transformer.transform(body)
     
@@ -235,73 +231,4 @@ defmodule Lisix.Sigil do
     end
   end
 
-  # Parse arguments and extract guards
-  defp parse_args_and_guards(args) do
-    case args do
-      {:vector, arg_list} ->
-        parse_args_list(arg_list)
-      arg_list when is_list(arg_list) ->
-        parse_args_list(arg_list)
-      _ ->
-        raise "Invalid arguments in function definition: #{inspect(args)}"
-    end
-  end
-
-  # Parse individual arguments and extract patterns/guards
-  defp parse_args_list(args) do
-    {patterns, guards} = Enum.reduce(args, {[], []}, fn arg, {pat_acc, guard_acc} ->
-      case arg do
-        # Simple atom argument
-        atom when is_atom(atom) ->
-          {[{atom, [], nil} | pat_acc], guard_acc}
-        
-        # Pattern like [head | tail] becomes {:|, [], [head, tail]}
-        [:"|", head, tail] ->
-          pattern = {:|, [], [transform_pattern(head), transform_pattern(tail)]}
-          {[pattern | pat_acc], guard_acc}
-        
-        # List pattern like [a, b, c]
-        {:vector, elements} ->
-          pattern = Enum.map(elements, &transform_pattern/1)
-          {[pattern | pat_acc], guard_acc}
-        
-        # Tuple pattern like {:ok, value}
-        list when is_list(list) ->
-          case list do
-            # Guard expression with :when
-            [:when, pattern, guard] ->
-              {[transform_pattern(pattern) | pat_acc], [Transformer.transform(guard) | guard_acc]}
-            # Regular tuple/list pattern
-            _ ->
-              pattern = List.to_tuple(Enum.map(list, &transform_pattern/1))
-              {[pattern | pat_acc], guard_acc}
-          end
-        
-        # Literal values
-        literal ->
-          {[literal | pat_acc], guard_acc}
-      end
-    end)
-    
-    final_patterns = Enum.reverse(patterns)
-    final_guards = case Enum.reverse(guards) do
-      [] -> nil
-      [single_guard] -> single_guard
-      multiple_guards -> 
-        # Combine multiple guards with 'and'
-        Enum.reduce(multiple_guards, &{:and, [], [&2, &1]})
-    end
-    
-    {final_patterns, final_guards}
-  end
-
-  # Transform pattern elements
-  defp transform_pattern(pattern) do
-    case pattern do
-      atom when is_atom(atom) -> {atom, [], nil}
-      {:vector, elements} -> Enum.map(elements, &transform_pattern/1)
-      list when is_list(list) -> List.to_tuple(Enum.map(list, &transform_pattern/1))
-      literal -> literal
-    end
-  end
 end

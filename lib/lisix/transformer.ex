@@ -173,11 +173,16 @@ defmodule Lisix.Transformer do
     
     arg_names = Enum.map(arg_list, fn
       atom when is_atom(atom) -> {atom, [], nil}
+      {:keyword, kw} -> kw  # Transform keywords to atoms for pattern matching
       _ -> raise "Invalid argument in defn"
     end)
     
     new_env = Enum.reduce(arg_list, env, fn arg, acc ->
-      Map.put(acc, arg, true)
+      case arg do
+        atom when is_atom(atom) -> Map.put(acc, arg, true)
+        {:keyword, kw} -> Map.put(acc, kw, true)
+        _ -> acc
+      end
     end)
     
     transformed_body = transform_expr(body, new_env)
