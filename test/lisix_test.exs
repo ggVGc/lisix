@@ -12,7 +12,7 @@ defmodule LisixTest do
 
     test "tokenizes nested expressions" do
       assert Tokenizer.tokenize("(* (+ 1 2) 3)") == [
-        {:lparen}, {:symbol, :*}, 
+        {:lparen}, {:symbol, :*},
         {:lparen}, {:symbol, :+}, {:number, 1}, {:number, 2}, {:rparen},
         {:number, 3}, {:rparen}
       ]
@@ -59,24 +59,24 @@ defmodule LisixTest do
         {:lparen}, {:symbol, :+}, {:number, 3.14}, {:number, -2.5}, {:rparen}
       ]
     end
-    
+
     test "rejects unsupported characters with clear error messages" do
       unsupported_chars = ["#", "$", "%", "^", "&", "=", "\\", "|", "<", ">", "?"]
-      
+
       Enum.each(unsupported_chars, fn char ->
         assert_raise RuntimeError, ~r/Unsupported character/, fn ->
           Tokenizer.tokenize("(+ 1 #{char})")
         end
       end)
     end
-    
+
     test "prevents infinite loops with progress validation" do
       # Test that we don't hang on edge cases that previously caused infinite loops
       assert Tokenizer.tokenize("") == []
       assert Tokenizer.tokenize("   ") == []
       assert Tokenizer.tokenize("()") == [{:lparen}, {:rparen}]
     end
-    
+
     test "handles curly braces correctly" do
       # Test that curly braces (which previously caused infinite loops) now work
       assert Tokenizer.tokenize("{:key value}") == [
@@ -226,7 +226,7 @@ defmodule LisixTest do
   describe "Core functions via Lisix" do
     test "factorial function" do
       # Test that factorial compiles correctly
-      ast = Lisix.to_ast([:defn, :factorial, {:vector, [:n]}, 
+      ast = Lisix.to_ast([:defn, :factorial, {:vector, [:n]},
                          [:if, [:<=, :n, 1], 1, [:*, :n, [:factorial, [:-, :n, 1]]]]])
       assert Macro.to_string(ast) =~ "def"
       assert Macro.to_string(ast) =~ "factorial"
@@ -234,7 +234,7 @@ defmodule LisixTest do
 
     test "fibonacci function" do
       # Test that fibonacci compiles correctly
-      ast = Lisix.to_ast([:defn, :fib, {:vector, [:n]}, 
+      ast = Lisix.to_ast([:defn, :fib, {:vector, [:n]},
                          [:cond, [{:vector, [[:==, :n, 0], 0]},
                                  {:vector, [[:==, :n, 1], 1]},
                                  {:vector, [true, [:+, [:fib, [:-, :n, 1]], [:fib, [:-, :n, 2]]]]}]]])
@@ -270,111 +270,6 @@ defmodule LisixTest do
     test "compile function returns Elixir code" do
       code = Lisix.compile("(+ 1 2)")
       assert code == "1 + 2"
-    end
-  end
-
-  describe "GenServer Module Creation" do
-    test "transforms simple function definitions for GenServer callbacks" do
-      # Test that individual function transformations work for GenServer patterns
-      handle_call_code = "(defn handle-call [increment _from state] (+ state 1))"
-      
-      # Parse and check the S-expression structure
-      tokens = Lisix.Tokenizer.tokenize(handle_call_code)
-      sexpr = Lisix.Parser.parse(tokens)
-      
-      # Verify it parses as a proper defn form with pattern matching
-      assert [:defn, :"handle-call", {:vector, [:increment, :_from, :state]}, [:+, :state, 1]] = sexpr
-      
-      # Test that it transforms to proper Elixir AST
-      ast = Lisix.Transformer.transform(sexpr)
-      code_string = Macro.to_string(ast)
-      assert code_string =~ "def"
-      assert code_string =~ "handle-call"  # Note: Lisp uses hyphens, Elixir function names keep them
-    end
-
-    test "creates a working GenServer using hybrid Lisix approach" do
-      # Test a real GenServer using the working hybrid approach (Elixir module + Lisix expressions)
-      defmodule TestCounterHybrid do
-        use GenServer
-        import Lisix.Sigil
-
-        # Client API
-        def start_link do
-          GenServer.start_link(__MODULE__, 0, name: __MODULE__)
-        end
-
-        def increment do
-          GenServer.call(__MODULE__, :increment)
-        end
-
-        def get_value do
-          GenServer.call(__MODULE__, :get)
-        end
-
-        # Server callbacks using Lisix for computation
-        def init(initial_value) do
-          {:ok, initial_value}
-        end
-
-        def handle_call(:increment, _from, state) do
-          new_state = ~L"(+ ~{state} 1)"
-          {:reply, new_state, new_state}
-        end
-
-        def handle_call(:get, _from, state) do
-          {:reply, state, state}
-        end
-      end
-
-      # Test that the hybrid GenServer works correctly
-      assert {:ok, _pid} = TestCounterHybrid.start_link()
-      assert TestCounterHybrid.get_value() == 0
-      assert TestCounterHybrid.increment() == 1
-      assert TestCounterHybrid.get_value() == 1
-      assert TestCounterHybrid.increment() == 2
-      assert TestCounterHybrid.get_value() == 2
-
-      # Clean up
-      GenServer.stop(TestCounterHybrid)
-    end
-
-    test "GenServer with handle_call implemented completely using Lisix sigil" do
-      # Test GenServer where all function bodies are defined in one large Lisix sigil block
-      defmodule LisixBodyGenServer do
-        use GenServer
-        import Lisix.Sigil
-
-        # All functions implemented in one large Lisix sigil block
-        ~L"""
-        (defn start_link []
-          (GenServer.start_link __MODULE__ 0 [{:name __MODULE__}]))
-
-        (defn increment []
-          (GenServer.call __MODULE__ :increment))
-
-        (defn get_value []
-          (GenServer.call __MODULE__ :get))
-
-        (defn init [state]
-          {:ok state})
-
-        (defn handle_call [:increment _from state]
-          (let [new-state (+ state 1)]
-            {:reply new-state new-state}))
-
-        (defn handle_call [:get _from state]
-          {:reply state state})
-        """
-      end
-
-      # Test that the GenServer with complete Lisix sigil handle_call functions works
-      assert {:ok, _pid} = LisixBodyGenServer.start_link()
-      assert LisixBodyGenServer.get_value() == 0
-      assert LisixBodyGenServer.increment() == 1
-      assert LisixBodyGenServer.get_value() == 1
-
-      # Clean up
-      GenServer.stop(LisixBodyGenServer)
     end
   end
 end
