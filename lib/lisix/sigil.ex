@@ -103,7 +103,7 @@ defmodule Lisix.Sigil do
           quote do: import unquote(module)
         
         [:alias, module, opts] ->
-          quote do: alias unquote(module), unquote(opts)
+          quote do: (alias unquote(module), unquote(opts))
         
         [:defstruct, fields] ->
           quote do: defstruct unquote(fields)

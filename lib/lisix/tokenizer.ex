@@ -33,7 +33,7 @@ defmodule Lisix.Tokenizer do
   defp tokenize_impl([], acc), do: acc
   
   # Skip whitespace
-  defp tokenize_impl([char | rest], acc) when char in ' \t\n\r' do
+  defp tokenize_impl([char | rest], acc) when char in ~c" \t\n\r" do
     tokenize_impl(rest, acc)
   end
   
@@ -154,12 +154,12 @@ defmodule Lisix.Tokenizer do
   defp collect_string([char | rest], acc) do
     collect_string(rest, [char | acc])
   end
-  defp collect_string([], acc) do
+  defp collect_string([], _acc) do
     raise "Unterminated string"
   end
   
   defp collect_symbol([], acc), do: {acc, []}
-  defp collect_symbol([char | _] = input, acc) when char in ' \t\n\r()[]";~' do
+  defp collect_symbol([char | _] = input, acc) when char in ~c" \t\n\r()[]\";}~" do
     {acc, input}
   end
   defp collect_symbol([char | rest], acc) do

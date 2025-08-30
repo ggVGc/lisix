@@ -41,7 +41,9 @@ defmodule Lisix.Transformer do
         transform_expr(expr, env)
       
       {:unquote_splicing, expr} ->
-        quote do: unquote_splicing(unquote(transform_expr(expr, env)))
+        # For unquote_splicing, we need to handle it differently
+        # For now, just transform the inner expression
+        transform_expr(expr, env)
       
       # Variables
       atom when is_atom(atom) ->
@@ -135,7 +137,7 @@ defmodule Lisix.Transformer do
         # Check if it starts with : for keyword access
         atom_str = Atom.to_string(atom)
         if String.starts_with?(atom_str, ":") do
-          key = String.slice(atom_str, 1..-1) |> String.to_atom()
+          key = String.slice(atom_str, 1..-1//1) |> String.to_atom()
           [map_expr | _] = args
           quote do
             Map.get(unquote(transform_expr(map_expr, env)), unquote(key))
@@ -156,13 +158,20 @@ defmodule Lisix.Transformer do
   end
 
   # Transform function definition
-  defp transform_defn([name, args, body], env) when is_atom(name) and is_list(args) do
-    arg_names = Enum.map(args, fn
+  defp transform_defn([name, args, body], env) when is_atom(name) do
+    # Handle vector syntax for args
+    arg_list = case args do
+      {:vector, a} -> a
+      a when is_list(a) -> a
+      _ -> raise "Invalid arguments in defn: #{inspect(args)}"
+    end
+    
+    arg_names = Enum.map(arg_list, fn
       atom when is_atom(atom) -> {atom, [], nil}
       _ -> raise "Invalid argument in defn"
     end)
     
-    new_env = Enum.reduce(args, env, fn arg, acc ->
+    new_env = Enum.reduce(arg_list, env, fn arg, acc ->
       Map.put(acc, arg, true)
     end)
     
@@ -311,13 +320,19 @@ defmodule Lisix.Transformer do
   end
 
   # Lambda/anonymous function
-  defp transform_lambda([args, body], env) when is_list(args) do
-    arg_names = Enum.map(args, fn
+  defp transform_lambda([args, body], env) do
+    # Handle vector syntax for args
+    arg_list = case args do
+      {:vector, a} -> a
+      a when is_list(a) -> a
+      _ -> raise "Invalid arguments in lambda: #{inspect(args)}"
+    end
+    arg_names = Enum.map(arg_list, fn
       atom when is_atom(atom) -> {atom, [], nil}
       _ -> raise "Invalid lambda argument"
     end)
     
-    new_env = Enum.reduce(args, env, fn arg, acc ->
+    new_env = Enum.reduce(arg_list, env, fn arg, acc ->
       Map.put(acc, arg, true)
     end)
     
@@ -495,7 +510,7 @@ defmodule Lisix.Transformer do
   end
 
   # Try/catch
-  defp transform_try([body | rescue_clauses], env) do
+  defp transform_try([body | _rescue_clauses], env) do
     transformed_body = transform_expr(body, env)
     
     # Simple try/rescue for now
@@ -554,9 +569,8 @@ defmodule Lisix.Transformer do
         transform_expr(inner, env)
       
       {:unquote_splicing, inner} ->
-        quote do
-          unquote_splicing(unquote(transform_expr(inner, env)))
-        end
+        # For quasiquote unquote_splicing, just transform the inner expression
+        transform_expr(inner, env)
       
       list when is_list(list) ->
         Enum.map(list, &quasiquote_expr(&1, env))

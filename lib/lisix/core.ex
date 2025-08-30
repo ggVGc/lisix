@@ -93,7 +93,7 @@ defmodule Lisix.Core do
   end
 
   @doc "Apply a function to arguments"
-  def apply(func, args) when is_function(func) and is_list(args) do
+  def apply_fn(func, args) when is_function(func) and is_list(args) do
     Kernel.apply(func, args)
   end
 
