@@ -26,6 +26,11 @@ defmodule Lisix.Transformer do
       {:vector, elements} ->
         Enum.map(elements, &transform_expr(&1, env))
       
+      # Tuples become tuples
+      {:tuple, elements} ->
+        transformed_elements = Enum.map(elements, &transform_expr(&1, env))
+        {:{}, [], transformed_elements}
+      
       # Interpolation
       {:interpolate, var} ->
         quote do: unquote(Macro.var(var, nil))

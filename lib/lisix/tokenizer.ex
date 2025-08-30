@@ -62,6 +62,15 @@ defmodule Lisix.Tokenizer do
     tokenize_impl(rest, [{:rbracket} | acc])
   end
   
+  # Curly braces for tuples/maps
+  defp tokenize_impl([?{ | rest], acc) do
+    tokenize_impl(rest, [{:lbrace} | acc])
+  end
+  
+  defp tokenize_impl([?} | rest], acc) do
+    tokenize_impl(rest, [{:rbrace} | acc])
+  end
+  
   # Quote forms
   defp tokenize_impl([?' | rest], acc) do
     tokenize_impl(rest, [{:quote} | acc])

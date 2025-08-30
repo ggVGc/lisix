@@ -68,6 +68,12 @@ defmodule Lisix.Parser do
     {remaining, {:vector, elements}}
   end
   
+  # Tuples/Maps
+  defp parse_expr([{:lbrace} | rest]) do
+    {remaining, elements} = parse_tuple(rest, [])
+    {remaining, {:tuple, elements}}
+  end
+  
   # Quote forms
   defp parse_expr([{:quote} | rest]) do
     {remaining, expr} = parse_expr(rest)
@@ -149,5 +155,19 @@ defmodule Lisix.Parser do
   defp parse_vector(tokens, acc) do
     {remaining, expr} = parse_expr(tokens)
     parse_vector(remaining, [expr | acc])
+  end
+  
+  # Parse tuple elements until closing brace
+  defp parse_tuple([{:rbrace} | rest], acc) do
+    {rest, Enum.reverse(acc)}
+  end
+  
+  defp parse_tuple([], _acc) do
+    raise "Unclosed tuple - missing }"
+  end
+  
+  defp parse_tuple(tokens, acc) do
+    {remaining, expr} = parse_expr(tokens)
+    parse_tuple(remaining, [expr | acc])
   end
 end
