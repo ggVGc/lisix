@@ -1,6 +1,15 @@
 # Quicksort implementation in Lisix
 
+# Load the Lisix modules
+Code.require_file("../lib/lisix.ex", __DIR__)
+Code.require_file("../lib/lisix/tokenizer.ex", __DIR__)
+Code.require_file("../lib/lisix/parser.ex", __DIR__)
+Code.require_file("../lib/lisix/transformer.ex", __DIR__)
+Code.require_file("../lib/lisix/sigil.ex", __DIR__)
+Code.require_file("../lib/lisix/core.ex", __DIR__)
+
 import Lisix.Sigil
+alias Lisix.Core
 
 # Define quicksort function using Lisix
 ~L"""
