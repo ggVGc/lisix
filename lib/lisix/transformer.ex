@@ -52,11 +52,14 @@ defmodule Lisix.Transformer do
       
       # Variables
       atom when is_atom(atom) ->
-        if Map.has_key?(env, atom) do
-          Macro.var(atom, nil)
-        else
-          # Could be a function reference
-          atom
+        cond do
+          atom == :__MODULE__ ->
+            quote do: __MODULE__
+          Map.has_key?(env, atom) ->
+            Macro.var(atom, nil)
+          true ->
+            # Could be a function reference
+            atom
         end
       
       # S-expressions (function calls and special forms)

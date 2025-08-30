@@ -339,36 +339,34 @@ defmodule LisixTest do
     end
 
     test "GenServer with handle_call implemented completely using Lisix sigil" do
-      # Test GenServer where handle_call functions are completely defined using Lisix sigil
+      # Test GenServer where all function bodies are defined in one large Lisix sigil block
       defmodule LisixBodyGenServer do
         use GenServer
         import Lisix.Sigil
 
-        # Regular Elixir client API
+        # Client API using regular Elixir (simpler for __MODULE__ and keyword args)
         def start_link do
           GenServer.start_link(__MODULE__, 0, name: __MODULE__)
         end
 
-        def increment do
-          GenServer.call(__MODULE__, :increment)
-        end
+        # All other functions implemented in one large Lisix sigil block
+        ~L"""
+        (defn increment []
+          (GenServer.call __MODULE__ :increment))
 
-        def get_value do
-          GenServer.call(__MODULE__, :get)
-        end
+        (defn get_value []
+          (GenServer.call __MODULE__ :get))
 
-        # Regular Elixir init
-        def init(state) do
-          {:ok, state}
-        end
+        (defn init [state]
+          {:ok state})
 
-        # GenServer callbacks implemented completely using Lisix sigil
-        ~L"(defn handle_call [:increment _from state]
-             (let [new-state (+ state 1)]
-               {:reply new-state new-state}))"
+        (defn handle_call [:increment _from state]
+          (let [new-state (+ state 1)]
+            {:reply new-state new-state}))
 
-        ~L"(defn handle_call [:get _from state]
-             {:reply state state})"
+        (defn handle_call [:get _from state]
+          {:reply state state})
+        """
       end
 
       # Test that the GenServer with complete Lisix sigil handle_call functions works

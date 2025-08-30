@@ -23,12 +23,30 @@ defmodule Lisix.Sigil do
 
   # Default: evaluate expression
   defmacro sigil_L({:<<>>, _meta, [string]}, []) when is_binary(string) do
-    ast = string
-          |> Tokenizer.tokenize()
-          |> Parser.parse()
-          |> Transformer.transform()
+    parsed = string
+             |> Tokenizer.tokenize()
+             |> Parser.parse()
     
-    ast
+    case parsed do
+      # Multiple expressions - the parser returns a list of expressions when there are multiple top-level forms
+      exprs when is_list(exprs) and length(exprs) > 1 ->
+        # Check if this is actually multiple top-level expressions vs a single S-expression
+        first_elem = List.first(exprs)
+        if is_list(first_elem) and is_atom(List.first(first_elem)) do
+          # This looks like multiple S-expressions: [[:defn, ...], [:defn, ...]]
+          transformed_exprs = Enum.map(exprs, &Transformer.transform/1)
+          quote do
+            unquote_splicing(transformed_exprs)
+          end
+        else
+          # This is a single S-expression that happens to be a list
+          Transformer.transform(parsed)
+        end
+      
+      # Single expression - transform normally  
+      single_expr ->
+        Transformer.transform(single_expr)
+    end
   end
 
   # Quote mode: return the S-expression as data
@@ -97,10 +115,42 @@ defmodule Lisix.Sigil do
     transformed_body = Enum.map(body, fn expr ->
       case expr do
         [:use, module] ->
-          quote do: use unquote(module)
+          # Convert atom to proper module reference if needed
+          module_ref = case module do
+            atom when is_atom(atom) ->
+              module_str = Atom.to_string(atom)
+              cond do
+                String.starts_with?(module_str, "Elixir.") ->
+                  module
+                String.contains?(module_str, ".") ->
+                  # This is a dotted module name like "GenServer.Behaviour"
+                  String.to_atom("Elixir." <> module_str)
+                true ->
+                  # Simple module name like "GenServer"
+                  String.to_atom("Elixir." <> module_str)
+              end
+            other -> other
+          end
+          quote do: use unquote(module_ref)
         
         [:import, module] ->
-          quote do: import unquote(module)
+          # Convert atom to proper module reference if needed
+          module_ref = case module do
+            atom when is_atom(atom) ->
+              module_str = Atom.to_string(atom)
+              cond do
+                String.starts_with?(module_str, "Elixir.") ->
+                  module
+                String.contains?(module_str, ".") ->
+                  # This is a dotted module name like "Lisix.Sigil"
+                  String.to_atom("Elixir." <> module_str)
+                true ->
+                  # Simple module name like "GenServer"
+                  String.to_atom("Elixir." <> module_str)
+              end
+            other -> other
+          end
+          quote do: import unquote(module_ref)
         
         [:alias, module, opts] ->
           quote do: (alias unquote(module), unquote(opts))
