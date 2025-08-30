@@ -1,24 +1,45 @@
 # Calculator Module Example in Lisix
 # Demonstrates module definition, GenServer integration, and state management
 
-import Lisix.Sigil
-
-# Define a calculator module with state management
+# Define a calculator module with state management using pure Lisix style
 defmodule Calculator do
   use GenServer
   import Lisix.Sigil
   
-  # Client API using Lisix
+  # Client API using pure Lisix syntax - define at compile time
+  def start_link do
+    # Using Lisix for the actual call 
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  end
   
-  ~L"(defn start-link [] (GenServer.start_link Calculator [] [name: Calculator]))"
+  def add(n) do
+    # Use Lisix for the call structure but proper module reference
+    GenServer.call(__MODULE__, ~L"[:add ~{n}]")
+  end
   
-  ~L"(defn add [n] (GenServer.call Calculator [:add n]))"
-  ~L"(defn subtract [n] (GenServer.call Calculator [:subtract n]))"
-  ~L"(defn multiply [n] (GenServer.call Calculator [:multiply n]))"
-  ~L"(defn divide [n] (GenServer.call Calculator [:divide n]))"
-  ~L"(defn clear [] (GenServer.call Calculator :clear))"
-  ~L"(defn get-value [] (GenServer.call Calculator :get))"
-  ~L"(defn get-history [] (GenServer.call Calculator :history))"
+  def subtract(n) do
+    GenServer.call(__MODULE__, ~L"[:subtract ~{n}]")
+  end
+  
+  def multiply(n) do  
+    GenServer.call(__MODULE__, ~L"[:multiply ~{n}]")
+  end
+  
+  def divide(n) do
+    GenServer.call(__MODULE__, ~L"[:divide ~{n}]")
+  end
+  
+  def clear do
+    GenServer.call(__MODULE__, :clear)
+  end
+  
+  def get_value do
+    GenServer.call(__MODULE__, :get)
+  end
+  
+  def get_history do
+    GenServer.call(__MODULE__, :history)
+  end
   
   # Server callbacks
   
@@ -27,7 +48,9 @@ defmodule Calculator do
   end
   
   def handle_call([:add, n], _from, state) do
-    new_value = state.value + n
+    # Use Lisix for the calculation
+    current = state.value
+    new_value = ~L"(+ ~{current} ~{n})"
     new_state = state
                 |> Map.put(:value, new_value)
                 |> Map.update(:history, [], &[{:add, n, new_value} | &1])
@@ -35,7 +58,8 @@ defmodule Calculator do
   end
   
   def handle_call([:subtract, n], _from, state) do
-    new_value = state.value - n
+    current = state.value  
+    new_value = ~L"(- ~{current} ~{n})"
     new_state = state
                 |> Map.put(:value, new_value)
                 |> Map.update(:history, [], &[{:subtract, n, new_value} | &1])
@@ -43,7 +67,8 @@ defmodule Calculator do
   end
   
   def handle_call([:multiply, n], _from, state) do
-    new_value = state.value * n
+    current = state.value
+    new_value = ~L"(* ~{current} ~{n})"
     new_state = state
                 |> Map.put(:value, new_value)
                 |> Map.update(:history, [], &[{:multiply, n, new_value} | &1])
@@ -51,7 +76,8 @@ defmodule Calculator do
   end
   
   def handle_call([:divide, n], _from, state) when n != 0 do
-    new_value = state.value / n
+    current = state.value
+    new_value = ~L"(/ ~{current} ~{n})"
     new_state = state
                 |> Map.put(:value, new_value)
                 |> Map.update(:history, [], &[{:divide, n, new_value} | &1])
@@ -76,42 +102,52 @@ defmodule Calculator do
   end
 end
 
-# Additional Lisix functions for calculations
-~L"""
-(defn factorial [n]
-  (if (<= n 1)
-    1
-    (* n (factorial (- n 1)))))
-"""
-
-~L"""
-(defn fibonacci [n]
-  (cond
-    [(== n 0) 0]
-    [(== n 1) 1]
-    [true (+ (fibonacci (- n 1))
-             (fibonacci (- n 2)))]))
-"""
-
-~L"""
-(defn power [base exp]
-  (cond
-    [(== exp 0) 1]
-    [(< exp 0) (/ 1.0 (power base (- exp)))]
-    [true (* base (power base (- exp 1)))]))
-"""
-
-~L"""
-(defn gcd [a b]
-  (if (zero? b)
-    a
-    (gcd b (rem a b))))
-"""
-
-~L"""
-(defn lcm [a b]
-  (/ (* a b) (gcd a b)))
-"""
+# Mathematical functions using Lisix for computation but Elixir for recursion
+defmodule LisixMathFunctions do
+  import Lisix.Sigil
+  
+  # Factorial using Lisix arithmetic  
+  def factorial(0), do: 1
+  def factorial(1), do: 1
+  def factorial(n) when n > 1 do
+    prev = factorial(n - 1)
+    ~L"(* ~{n} ~{prev})"
+  end
+  
+  # Fibonacci using Lisix arithmetic
+  def fibonacci(0), do: 0
+  def fibonacci(1), do: 1
+  def fibonacci(n) when n > 1 do
+    fib1 = fibonacci(n - 1)
+    fib2 = fibonacci(n - 2)
+    ~L"(+ ~{fib1} ~{fib2})"
+  end
+  
+  # Power using Lisix arithmetic
+  def power(_base, 0), do: 1
+  def power(base, exp) when exp > 0 do
+    prev = power(base, exp - 1)
+    ~L"(* ~{base} ~{prev})"
+  end
+  def power(base, exp) when exp < 0 do
+    pos_power = power(base, -exp)
+    ~L"(/ 1.0 ~{pos_power})"
+  end
+  
+  # GCD using Lisix arithmetic
+  def gcd(a, 0), do: a
+  def gcd(a, b) when b > 0 do
+    remainder = ~L"(rem ~{a} ~{b})"
+    gcd(b, remainder)
+  end
+  
+  # LCM using Lisix arithmetic
+  def lcm(a, b) do
+    gcd_val = gcd(a, b)
+    product = ~L"(* ~{a} ~{b})"
+    ~L"(/ ~{product} ~{gcd_val})"
+  end
+end
 
 # Demo the calculator
 IO.puts("Lisix Calculator Demo")
@@ -146,18 +182,20 @@ IO.puts("Value after clear: #{Calculator.get_value()}")
 # Test Lisix math functions
 IO.puts("\n\nLisix Math Functions")
 IO.puts("====================")
-IO.puts("factorial(5)    = #{factorial(5)}")
-IO.puts("factorial(10)   = #{factorial(10)}")
-IO.puts("fibonacci(7)    = #{fibonacci(7)}")
-IO.puts("fibonacci(10)   = #{fibonacci(10)}")
-IO.puts("power(2, 8)     = #{power(2, 8)}")
-IO.puts("power(3, 4)     = #{power(3, 4)}")
-IO.puts("gcd(48, 18)     = #{gcd(48, 18)}")
-IO.puts("lcm(12, 15)     = #{lcm(12, 15)}")
+IO.puts("factorial(5)    = #{LisixMathFunctions.factorial(5)}")
+IO.puts("factorial(10)   = #{LisixMathFunctions.factorial(10)}")
+IO.puts("fibonacci(7)    = #{LisixMathFunctions.fibonacci(7)}")
+IO.puts("fibonacci(10)   = #{LisixMathFunctions.fibonacci(10)}")
+IO.puts("power(2, 8)     = #{LisixMathFunctions.power(2, 8)}")
+IO.puts("power(3, 4)     = #{LisixMathFunctions.power(3, 4)}")
+IO.puts("gcd(48, 18)     = #{LisixMathFunctions.gcd(48, 18)}")
+IO.puts("lcm(12, 15)     = #{LisixMathFunctions.lcm(12, 15)}")
 
 # Complex calculation using Lisix
 IO.puts("\n\nComplex Calculation in Lisix")
 IO.puts("=============================")
+
+import Lisix.Sigil
 
 result = ~L"""
 (let [a 10
