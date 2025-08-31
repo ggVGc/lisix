@@ -61,7 +61,7 @@ defmodule LisixTest do
     end
 
     test "rejects unsupported characters with clear error messages" do
-      unsupported_chars = ["#", "$", "%", "^", "&", "=", "\\", "|", "<", ">", "?"]
+      unsupported_chars = ["#", "$", "%", "^", "&", "\\", "|", "?"]
 
       Enum.each(unsupported_chars, fn char ->
         assert_raise RuntimeError, ~r/Unsupported character/, fn ->
@@ -81,6 +81,33 @@ defmodule LisixTest do
       # Test that curly braces (which previously caused infinite loops) now work
       assert Tokenizer.tokenize("{:key value}") == [
         {:lbrace}, {:keyword, :key}, {:symbol, :value}, {:rbrace}
+      ]
+    end
+
+    test "tokenizes comparison operators" do
+      # Test single character operators
+      assert Tokenizer.tokenize("(< a b)") == [
+        {:lparen}, {:symbol, :<}, {:symbol, :a}, {:symbol, :b}, {:rparen}
+      ]
+      assert Tokenizer.tokenize("(> x y)") == [
+        {:lparen}, {:symbol, :>}, {:symbol, :x}, {:symbol, :y}, {:rparen}
+      ]
+      assert Tokenizer.tokenize("(= p q)") == [
+        {:lparen}, {:symbol, :=}, {:symbol, :p}, {:symbol, :q}, {:rparen}
+      ]
+
+      # Test compound operators
+      assert Tokenizer.tokenize("(<= a b)") == [
+        {:lparen}, {:symbol, :<=}, {:symbol, :a}, {:symbol, :b}, {:rparen}
+      ]
+      assert Tokenizer.tokenize("(>= x y)") == [
+        {:lparen}, {:symbol, :>=}, {:symbol, :x}, {:symbol, :y}, {:rparen}
+      ]
+      assert Tokenizer.tokenize("(!= p q)") == [
+        {:lparen}, {:symbol, :!=}, {:symbol, :p}, {:symbol, :q}, {:rparen}
+      ]
+      assert Tokenizer.tokenize("(== m n)") == [
+        {:lparen}, {:symbol, :==}, {:symbol, :m}, {:symbol, :n}, {:rparen}
       ]
     end
   end

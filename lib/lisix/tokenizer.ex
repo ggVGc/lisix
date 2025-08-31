@@ -124,10 +124,40 @@ defmodule Lisix.Tokenizer do
     tokenize_impl(remaining, [{:keyword, keyword} | acc])
   end
   
-  # Error handling for unsupported characters - prevents infinite loops
-  defp tokenize_impl([char | _rest], _acc) when char in ~c"#$%^&=\\|<>?" do
+  # Compound comparison operators (must come before single character operators)
+  defp tokenize_impl([?<, ?= | rest], acc) do
+    tokenize_impl(rest, [{:symbol, :<=} | acc])
+  end
+  
+  defp tokenize_impl([?>, ?= | rest], acc) do
+    tokenize_impl(rest, [{:symbol, :>=} | acc])
+  end
+  
+  defp tokenize_impl([?!, ?= | rest], acc) do
+    tokenize_impl(rest, [{:symbol, :!=} | acc])
+  end
+  
+  defp tokenize_impl([?=, ?= | rest], acc) do
+    tokenize_impl(rest, [{:symbol, :==} | acc])
+  end
+  
+  # Single character comparison operators
+  defp tokenize_impl([?< | rest], acc) do
+    tokenize_impl(rest, [{:symbol, :<} | acc])
+  end
+  
+  defp tokenize_impl([?> | rest], acc) do
+    tokenize_impl(rest, [{:symbol, :>} | acc])
+  end
+  
+  defp tokenize_impl([?= | rest], acc) do
+    tokenize_impl(rest, [{:symbol, :=} | acc])
+  end
+
+  # Error handling for remaining unsupported characters - prevents infinite loops
+  defp tokenize_impl([char | _rest], _acc) when char in ~c"#$%^&\\|?" do
     raise "Unsupported character '#{<<char>>}' in Lisix input. " <>
-          "Supported syntax includes: () [] {} : ; ~ \" ' ` @ (for unquote) and alphanumeric symbols including + - * /"
+          "Supported syntax includes: () [] {} : ; ~ \" ' ` @ (for unquote) and alphanumeric symbols including + - * / < > = <= >= != =="
   end
   
   # Symbols and special literals
