@@ -15,9 +15,9 @@ defmodule Lisix.Sigil do
   
   Modifiers:
   - (none) - Evaluate as expression
-  - m - Define as macro
-  - M - Module definition
+  - m - Define as macro  
   - q - Quote the expression
+  - i - Interactive mode
   """
   defmacro sigil_L(string, modifiers)
 
@@ -67,7 +67,15 @@ defmodule Lisix.Sigil do
     case ast do
       [:defmacro, name, args, body] ->
         transformed_body = Transformer.transform(body)
-        arg_names = Enum.map(args, fn
+        
+        # Handle vector syntax for args
+        arg_list = case args do
+          {:vector, a} -> a
+          a when is_list(a) -> a
+          _ -> raise "Invalid arguments in defmacro: #{inspect(args)}"
+        end
+        
+        arg_names = Enum.map(arg_list, fn
           atom when is_atom(atom) -> {atom, [], nil}
           _ -> raise "Invalid macro argument"
         end)
@@ -83,20 +91,6 @@ defmodule Lisix.Sigil do
     end
   end
 
-  # Module mode: define an entire module
-  defmacro sigil_L({:<<>>, _meta, [string]}, [?M]) when is_binary(string) do
-    ast = string
-          |> Tokenizer.tokenize()
-          |> Parser.parse()
-    
-    case ast do
-      [:defmodule, module_name | body] ->
-        transform_module(module_name, body)
-      
-      _ ->
-        raise "Module mode requires a defmodule form"
-    end
-  end
 
   # Interactive mode: evaluate and return result
   defmacro sigil_L({:<<>>, _meta, [string]}, [?i]) when is_binary(string) do
@@ -110,175 +104,6 @@ defmodule Lisix.Sigil do
     end
   end
 
-  # Helper function to transform module definitions
-  defp transform_module(module_name, body) do
-    transformed_body = Enum.map(body, fn expr ->
-      case expr do
-        [:use, module] ->
-          # Convert atom to proper module reference if needed
-          module_ref = case module do
-            atom when is_atom(atom) ->
-              module_str = Atom.to_string(atom)
-              cond do
-                String.starts_with?(module_str, "Elixir.") ->
-                  module
-                String.contains?(module_str, ".") ->
-                  # This is a dotted module name like "GenServer.Behaviour"
-                  String.to_atom("Elixir." <> module_str)
-                true ->
-                  # Simple module name like "GenServer"
-                  String.to_atom("Elixir." <> module_str)
-              end
-            other -> other
-          end
-          quote do: use unquote(module_ref)
-        
-        [:import, module] ->
-          # Convert atom to proper module reference if needed
-          module_ref = case module do
-            atom when is_atom(atom) ->
-              module_str = Atom.to_string(atom)
-              cond do
-                String.starts_with?(module_str, "Elixir.") ->
-                  module
-                String.contains?(module_str, ".") ->
-                  # This is a dotted module name like "Lisix.Sigil"
-                  String.to_atom("Elixir." <> module_str)
-                true ->
-                  # Simple module name like "GenServer"
-                  String.to_atom("Elixir." <> module_str)
-              end
-            other -> other
-          end
-          quote do: import unquote(module_ref)
-        
-        [:alias, module, opts] ->
-          quote do: (alias unquote(module), unquote(opts))
-        
-        [:defstruct, fields] ->
-          quote do: defstruct unquote(fields)
-        
-        # Handle defn with pattern matching support
-        [:defn, name, args, body] ->
-          transform_module_defn(name, args, body)
-        
-        # Handle defn with multiple clauses (pattern matching)
-        [:defn, name | clauses] ->
-          transform_module_defn_clauses(name, clauses)
-        
-        # Handle defp (private functions)
-        [:defp, name, args, body] ->
-          transform_module_defp(name, args, body)
-        
-        # Handle GenServer callbacks and other special forms
-        [:def, name, args, body] ->
-          transform_module_defn(name, args, body)
-          
-        # Handle multiple clauses for callback functions
-        [:def, name | clauses] ->
-          transform_module_defn_clauses(name, clauses)
-        
-        other ->
-          Transformer.transform(other)
-      end
-    end)
-    
-    quote do
-      defmodule unquote(module_name) do
-        unquote_splicing(transformed_body)
-      end
-    end
-  end
 
-  # Transform function definition in module context
-  defp transform_module_defn(name, args, body) do
-    # Simple approach: let Transformer handle all argument patterns
-    arg_patterns = case args do
-      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
-      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
-      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
-    end
-    
-    transformed_body = Transformer.transform(body)
-    
-    quote do
-      def unquote(name)(unquote_splicing(arg_patterns)) do
-        unquote(transformed_body)
-      end
-    end
-  end
-
-  # Transform private function definition
-  defp transform_module_defp(name, args, body) do
-    # Simple approach: let Transformer handle all argument patterns
-    arg_patterns = case args do
-      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
-      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
-      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
-    end
-    
-    transformed_body = Transformer.transform(body)
-    
-    quote do
-      defp unquote(name)(unquote_splicing(arg_patterns)) do
-        unquote(transformed_body)
-      end
-    end
-  end
-
-  # Transform function with multiple clauses (for pattern matching)
-  defp transform_module_defn_clauses(name, clauses) do
-    clause_asts = Enum.map(clauses, fn
-      {:vector, [args, body]} ->
-        transform_single_clause(name, args, body, :def)
-      [args, body] ->
-        transform_single_clause(name, args, body, :def)
-      {:vector, [args, guard, body]} ->
-        transform_single_clause_with_guard(name, args, guard, body, :def)
-      [args, guard, body] ->
-        transform_single_clause_with_guard(name, args, guard, body, :def)
-    end)
-    
-    quote do
-      unquote_splicing(clause_asts)
-    end
-  end
-
-  # Transform a single function clause
-  defp transform_single_clause(name, args, body, def_type) do
-    # Simple approach: let Transformer handle all argument patterns
-    arg_patterns = case args do
-      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
-      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
-      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
-    end
-    
-    transformed_body = Transformer.transform(body)
-    
-    quote do
-      unquote(def_type)(unquote(name)(unquote_splicing(arg_patterns))) do
-        unquote(transformed_body)
-      end
-    end
-  end
-
-  # Transform a single function clause with explicit guard
-  defp transform_single_clause_with_guard(name, args, guard, body, def_type) do
-    # Simple approach: let Transformer handle all argument patterns
-    arg_patterns = case args do
-      {:vector, arg_list} -> Enum.map(arg_list, &Transformer.transform/1)
-      arg_list when is_list(arg_list) -> Enum.map(arg_list, &Transformer.transform/1)
-      _ -> raise "Invalid arguments in function definition: #{inspect(args)}"
-    end
-    
-    guard_expr = Transformer.transform(guard)
-    transformed_body = Transformer.transform(body)
-    
-    quote do
-      unquote(def_type)(unquote(name)(unquote_splicing(arg_patterns))) when unquote(guard_expr) do
-        unquote(transformed_body)
-      end
-    end
-  end
 
 end
