@@ -1,4 +1,4 @@
-# Enhanced Lisix Calculator Module Example  
+# Enhanced Lisix Calculator Module Example
 # Demonstrates extensive Lisix usage for function definitions within Elixir modules
 # Features: tuple pattern matching, map destructuring, complex GenServer callbacks,
 # mathematical algorithms, and history tracking - all in authentic Lisp syntax
@@ -10,35 +10,35 @@ defmodule Calculator do
   import Lisix.Sigil
 
   ~L"""
-  ;; Client API functions in pure Lisp syntax  
+  ;; Client API functions in pure Lisp syntax
   (defn start_link []
     (GenServer.start_link __MODULE__ {:value 0 :history []} [{:name __MODULE__}]))
-  
+
   (defn add [n]
     (GenServer.call __MODULE__ {:add n}))
-  
+
   (defn subtract [n]
     (GenServer.call __MODULE__ {:subtract n}))
-  
+
   (defn multiply [n]
     (GenServer.call __MODULE__ {:multiply n}))
-  
+
   (defn divide [n]
     (GenServer.call __MODULE__ {:divide n}))
-  
+
   (defn clear []
     (GenServer.call __MODULE__ :clear))
-  
+
   (defn get_value []
     (GenServer.call __MODULE__ :get))
-  
+
   (defn get_history []
     (GenServer.call __MODULE__ :history))
-  
+
   ;; GenServer callbacks with complex pattern matching
   (defn init [state]
     {:ok state})
-  
+
   ;; Handle add operation
   (defn handle_call [{:add n} _from {:value current :history history}]
     (let [new_value (+ current n)
@@ -46,15 +46,15 @@ defmodule Calculator do
           new_history (cons operation history)
           new_state {:value new_value :history new_history}]
       {:reply new_value new_state}))
-  
-  ;; Handle subtract operation  
+
+  ;; Handle subtract operation
   (defn handle_call [{:subtract n} _from {:value current :history history}]
     (let [new_value (- current n)
           operation {:subtract n :result new_value}
           new_history (cons operation history)
           new_state {:value new_value :history new_history}]
       {:reply new_value new_state}))
-  
+
   ;; Handle multiply operation
   (defn handle_call [{:multiply n} _from {:value current :history history}]
     (let [new_value (* current n)
@@ -62,7 +62,7 @@ defmodule Calculator do
           new_history (cons operation history)
           new_state {:value new_value :history new_history}]
       {:reply new_value new_state}))
-  
+
   ;; Handle divide operation with zero check
   (defn handle_call [{:divide n} _from {:value current :history history}]
     (if (== n 0)
@@ -72,16 +72,16 @@ defmodule Calculator do
             new_history (cons operation history)
             new_state {:value new_value :history new_history}]
         {:reply new_value new_state})))
-  
+
   ;; Handle clear operation
   (defn handle_call [:clear _from {:value _current :history history}]
     (let [new_state {:value 0 :history (cons {:clear :result 0} history)}]
       {:reply 0 new_state}))
-  
+
   ;; Handle get current value
   (defn handle_call [:get _from {:value current :history history}]
     {:reply current {:value current :history history}})
-  
+
   ;; Handle get history (history is stored newest-first, return as-is for recent first)
   (defn handle_call [:history _from {:value current :history history}]
     {:reply history {:value current :history history}})
@@ -92,60 +92,60 @@ end
 
 defmodule LisixMath do
   import Lisix.Sigil
-  
+
   ~L"""
   ;; Factorial with pattern matching and guards
   (defn factorial [0] 1)
   (defn factorial [1] 1)
   (defn factorial [n] :when (> n 1)
     (* n (factorial (- n 1))))
-  
-  ;; Fibonacci with pattern matching 
+
+  ;; Fibonacci with pattern matching
   (defn fibonacci [0] 0)
-  (defn fibonacci [1] 1) 
+  (defn fibonacci [1] 1)
   (defn fibonacci [n] :when (> n 1)
     (+ (fibonacci (- n 1))
        (fibonacci (- n 2))))
-  
+
   ;; Power function with pattern matching
   (defn power [_base 0] 1)
   (defn power [base exp] :when (> exp 0)
     (* base (power base (- exp 1))))
   (defn power [base exp] :when (< exp 0)
     (/ 1.0 (power base (- 0 exp))))
-  
+
   ;; Greatest Common Divisor with pattern matching
   (defn gcd [a 0] a)
   (defn gcd [a b] :when (> b 0)
     (gcd b (rem a b)))
-  
+
   ;; Least Common Multiple
   (defn lcm [a b]
     (/ (* a b) (gcd a b)))
-  
+
   ;; Prime number check with pattern matching and guards
   (defn is_prime [n] :when (<= n 1)
     false)
-  
+
   (defn is_prime [2]
     true)
-  
+
   (defn is_prime [n] :when (== (rem n 2) 0)
     false)
-  
+
   (defn is_prime [n]
     (not (has_divisor n 3)))
-  
+
   ;; Helper for prime checking with guards
   (defn has_divisor [n divisor] :when (> (* divisor divisor) n)
     false)
-  
+
   (defn has_divisor [n divisor] :when (== (rem n divisor) 0)
     true)
-  
+
   (defn has_divisor [n divisor]
     (has_divisor n (+ divisor 2)))
-  
+
   ;; Additional math functions showcasing Lisix capabilities
   (defn abs [n]
     (if (< n 0)
