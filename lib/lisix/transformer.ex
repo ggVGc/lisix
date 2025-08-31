@@ -172,18 +172,10 @@ defmodule Lisix.Transformer do
       _ -> raise "Invalid arguments in defn: #{inspect(args)}"
     end
     
-    arg_names = Enum.map(arg_list, fn
-      atom when is_atom(atom) -> {atom, [], nil}
-      {:keyword, kw} -> kw  # Transform keywords to atoms for pattern matching
-      _ -> raise "Invalid argument in defn"
-    end)
+    arg_names = Enum.map(arg_list, &transform_pattern/1)
     
     new_env = Enum.reduce(arg_list, env, fn arg, acc ->
-      case arg do
-        atom when is_atom(atom) -> Map.put(acc, arg, true)
-        {:keyword, kw} -> Map.put(acc, kw, true)
-        _ -> acc
-      end
+      extract_pattern_vars(arg, acc)
     end)
     
     transformed_body = transform_expr(body, new_env)
@@ -199,14 +191,9 @@ defmodule Lisix.Transformer do
   defp transform_defn([name | clauses], env) when is_atom(name) do
     transformed_clauses = Enum.map(clauses, fn
       [args, body] when is_list(args) ->
-        arg_names = Enum.map(args, fn
-          atom when is_atom(atom) -> {atom, [], nil}
-          _ -> raise "Invalid argument"
-        end)
+        arg_names = Enum.map(args, &transform_pattern/1)
         
-        new_env = Enum.reduce(args, env, fn arg, acc ->
-          Map.put(acc, arg, true)
-        end)
+        new_env = Enum.reduce(args, env, &extract_pattern_vars/2)
         
         transformed_body = transform_expr(body, new_env)
         
@@ -224,14 +211,9 @@ defmodule Lisix.Transformer do
 
   # Private function
   defp transform_defp([name, args, body], env) do
-    arg_names = Enum.map(args, fn
-      atom when is_atom(atom) -> {atom, [], nil}
-      _ -> raise "Invalid argument in defp"
-    end)
+    arg_names = Enum.map(args, &transform_pattern/1)
     
-    new_env = Enum.reduce(args, env, fn arg, acc ->
-      Map.put(acc, arg, true)
-    end)
+    new_env = Enum.reduce(args, env, &extract_pattern_vars/2)
     
     transformed_body = transform_expr(body, new_env)
     
@@ -239,6 +221,68 @@ defmodule Lisix.Transformer do
       defp unquote(name)(unquote_splicing(arg_names)) do
         unquote(transformed_body)
       end
+    end
+  end
+
+  # Transform patterns for function arguments (supports complex pattern matching)
+  defp transform_pattern(pattern) do
+    case pattern do
+      # Simple atom (variable or wildcard)
+      atom when is_atom(atom) -> 
+        {atom, [], nil}
+      
+      # Keyword 
+      {:keyword, kw} -> 
+        kw
+      
+      # Tuple pattern: {:add n} -> {:add, n}
+      {:tuple, elements} ->
+        transformed_elements = Enum.map(elements, &transform_pattern/1)
+        {:{}, [], transformed_elements}
+      
+      # List pattern: [:add n] -> [:add, n] 
+      list when is_list(list) ->
+        Enum.map(list, &transform_pattern/1)
+      
+      # Vector pattern (treat as list)
+      {:vector, elements} ->
+        Enum.map(elements, &transform_pattern/1)
+      
+      # Number or string literals in patterns
+      literal when is_number(literal) or is_binary(literal) ->
+        literal
+      
+      _ -> 
+        raise "Invalid pattern in function argument: #{inspect(pattern)}"
+    end
+  end
+
+  # Extract variable names from patterns for environment tracking
+  defp extract_pattern_vars(pattern, env) do
+    case pattern do
+      # Simple atom (variable)
+      atom when is_atom(atom) -> 
+        Map.put(env, atom, true)
+      
+      # Keyword 
+      {:keyword, kw} -> 
+        Map.put(env, kw, true)
+      
+      # Tuple pattern: extract vars from elements
+      {:tuple, elements} ->
+        Enum.reduce(elements, env, &extract_pattern_vars/2)
+      
+      # List pattern: extract vars from elements
+      list when is_list(list) ->
+        Enum.reduce(list, env, &extract_pattern_vars/2)
+      
+      # Vector pattern 
+      {:vector, elements} ->
+        Enum.reduce(elements, env, &extract_pattern_vars/2)
+      
+      # Literals don't add variables
+      _ -> 
+        env
     end
   end
 

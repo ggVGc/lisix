@@ -110,6 +110,22 @@ defmodule LisixTest do
         {:lparen}, {:symbol, :==}, {:symbol, :m}, {:symbol, :n}, {:rparen}
       ]
     end
+
+    test "supports tuple pattern matching in defn" do
+      # Test that tuple patterns work in function definitions
+      defmodule TestTuplePatterns do
+        import Lisix.Sigil
+        
+        ~L"""
+        (defn handle_msg [{:test value} state]
+          (+ value state))
+        """
+      end
+      
+      # Test the generated function works with pattern matching
+      result = TestTuplePatterns.handle_msg({:test, 5}, 10)
+      assert result == 15
+    end
   end
 
   describe "Parser" do
