@@ -94,56 +94,57 @@ defmodule LisixMath do
   import Lisix.Sigil
   
   ~L"""
-  ;; Factorial with conditional logic (guards not fully supported yet)
-  (defn factorial [n]
-    (if (<= n 1)
-      1
-      (* n (factorial (- n 1)))))
+  ;; Factorial with pattern matching and guards
+  (defn factorial [0] 1)
+  (defn factorial [1] 1)
+  (defn factorial [n] :when (> n 1)
+    (* n (factorial (- n 1))))
   
-  ;; Fibonacci with conditional logic
-  (defn fibonacci [n]
-    (if (== n 0)
-      0
-      (if (== n 1)
-        1
-        (+ (fibonacci (- n 1))
-           (fibonacci (- n 2))))))
+  ;; Fibonacci with pattern matching 
+  (defn fibonacci [0] 0)
+  (defn fibonacci [1] 1) 
+  (defn fibonacci [n] :when (> n 1)
+    (+ (fibonacci (- n 1))
+       (fibonacci (- n 2))))
   
-  ;; Power function
-  (defn power [base exp]
-    (if (== exp 0)
-      1
-      (if (> exp 0)
-        (* base (power base (- exp 1)))
-        (/ 1.0 (power base (- 0 exp))))))
+  ;; Power function with pattern matching
+  (defn power [_base 0] 1)
+  (defn power [base exp] :when (> exp 0)
+    (* base (power base (- exp 1))))
+  (defn power [base exp] :when (< exp 0)
+    (/ 1.0 (power base (- 0 exp))))
   
-  ;; Greatest Common Divisor using Euclidean algorithm
-  (defn gcd [a b]
-    (if (== b 0)
-      a
-      (gcd b (rem a b))))
+  ;; Greatest Common Divisor with pattern matching
+  (defn gcd [a 0] a)
+  (defn gcd [a b] :when (> b 0)
+    (gcd b (rem a b)))
   
   ;; Least Common Multiple
   (defn lcm [a b]
     (/ (* a b) (gcd a b)))
   
-  ;; Prime number check
-  (defn is_prime [n]
-    (if (<= n 1)
-      false
-      (if (== n 2)
-        true
-        (if (== (rem n 2) 0)
-          false
-          (not (has_divisor n 3))))))
+  ;; Prime number check with pattern matching and guards
+  (defn is_prime [n] :when (<= n 1)
+    false)
   
-  ;; Helper for prime checking (private function)
+  (defn is_prime [2]
+    true)
+  
+  (defn is_prime [n] :when (== (rem n 2) 0)
+    false)
+  
+  (defn is_prime [n]
+    (not (has_divisor n 3)))
+  
+  ;; Helper for prime checking with guards
+  (defn has_divisor [n divisor] :when (> (* divisor divisor) n)
+    false)
+  
+  (defn has_divisor [n divisor] :when (== (rem n divisor) 0)
+    true)
+  
   (defn has_divisor [n divisor]
-    (if (> (* divisor divisor) n)
-      false
-      (if (== (rem n divisor) 0)
-        true
-        (has_divisor n (+ divisor 2)))))
+    (has_divisor n (+ divisor 2)))
   
   ;; Additional math functions showcasing Lisix capabilities
   (defn abs [n]
@@ -249,6 +250,9 @@ IO.puts("\n🎉 Enhanced Lisix Calculator completed successfully!")
 IO.puts("✅ All client API functions defined in authentic Lisp syntax!")
 IO.puts("✅ GenServer callbacks with complex tuple pattern matching!")
 IO.puts("✅ Map destructuring in function parameters!")
+IO.puts("✅ Multiple function clauses with guard conditions!")
+IO.puts("✅ Pattern matching with literal values (0, 1, 2)!")
+IO.puts("✅ Sophisticated guard expressions with :when!")
 IO.puts("✅ Conditional logic and comparison operators working!")
 IO.puts("✅ Mathematical functions with recursive algorithms!")
 IO.puts("✅ History tracking with immutable data structures!")

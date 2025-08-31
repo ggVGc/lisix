@@ -187,6 +187,31 @@ defmodule Lisix.Transformer do
     end
   end
 
+  # Transform function definition with guard
+  defp transform_defn([name, args, {:keyword, :when}, guard, body], env) when is_atom(name) do
+    # Handle vector syntax for args
+    arg_list = case args do
+      {:vector, a} -> a
+      a when is_list(a) -> a
+      _ -> raise "Invalid arguments in defn: #{inspect(args)}"
+    end
+    
+    arg_names = Enum.map(arg_list, &transform_pattern/1)
+    
+    new_env = Enum.reduce(arg_list, env, fn arg, acc ->
+      extract_pattern_vars(arg, acc)
+    end)
+    
+    transformed_guard = transform_expr(guard, new_env)
+    transformed_body = transform_expr(body, new_env)
+    
+    quote do
+      def unquote(name)(unquote_splicing(arg_names)) when unquote(transformed_guard) do
+        unquote(transformed_body)
+      end
+    end
+  end
+
   # Multiple arity functions
   defp transform_defn([name | clauses], env) when is_atom(name) do
     transformed_clauses = Enum.map(clauses, fn
@@ -199,6 +224,21 @@ defmodule Lisix.Transformer do
         
         quote do
           def unquote(name)(unquote_splicing(arg_names)) do
+            unquote(transformed_body)
+          end
+        end
+      
+      # Support for clauses with guards: [args, {:keyword, :when}, guard, body]
+      [args, {:keyword, :when}, guard, body] when is_list(args) ->
+        arg_names = Enum.map(args, &transform_pattern/1)
+        
+        new_env = Enum.reduce(args, env, &extract_pattern_vars/2)
+        
+        transformed_guard = transform_expr(guard, new_env)
+        transformed_body = transform_expr(body, new_env)
+        
+        quote do
+          def unquote(name)(unquote_splicing(arg_names)) when unquote(transformed_guard) do
             unquote(transformed_body)
           end
         end

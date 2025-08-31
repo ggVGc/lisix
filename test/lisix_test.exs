@@ -126,6 +126,29 @@ defmodule LisixTest do
       result = TestTuplePatterns.handle_msg({:test, 5}, 10)
       assert result == 15
     end
+
+    test "supports guards with :when in defn" do
+      # Test that guard clauses work in function definitions
+      defmodule TestGuards do
+        import Lisix.Sigil
+        
+        ~L"""
+        (defn classify [n] :when (< n 0)
+          :negative)
+        
+        (defn classify [0]
+          :zero)
+          
+        (defn classify [n] :when (> n 0)
+          :positive)
+        """
+      end
+      
+      # Test the guard-based pattern matching works
+      assert TestGuards.classify(-5) == :negative
+      assert TestGuards.classify(0) == :zero  
+      assert TestGuards.classify(7) == :positive
+    end
   end
 
   describe "Parser" do
