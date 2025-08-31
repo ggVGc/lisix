@@ -1,146 +1,163 @@
-# Pure Lisix Calculator Module Example
-# Demonstrates complete module definition in authentic Lisp syntax
+# Enhanced Lisix Calculator Module Example  
+# Demonstrates extensive Lisix usage for function definitions within Elixir modules
+# Features: tuple pattern matching, map destructuring, complex GenServer callbacks,
+# mathematical algorithms, and history tracking - all in authentic Lisp syntax
 
 import Lisix.Sigil
 
-~L"""
-(defmodule Calculator
-  (use GenServer)
-  (import Lisix.Sigil)
-  
-  ;; Client API functions in pure Lisp syntax
-  (defn start-link []
-    (GenServer.start_link __MODULE__ [] [name: __MODULE__]))
+defmodule Calculator do
+  use GenServer
+  import Lisix.Sigil
+
+  ~L"""
+  ;; Client API functions in pure Lisp syntax  
+  (defn start_link []
+    (GenServer.start_link __MODULE__ {:value 0 :history []} [{:name __MODULE__}]))
   
   (defn add [n]
-    (GenServer.call __MODULE__ [:add n]))
+    (GenServer.call __MODULE__ {:add n}))
   
   (defn subtract [n]
-    (GenServer.call __MODULE__ [:subtract n]))
+    (GenServer.call __MODULE__ {:subtract n}))
   
   (defn multiply [n]
-    (GenServer.call __MODULE__ [:multiply n]))
+    (GenServer.call __MODULE__ {:multiply n}))
   
   (defn divide [n]
-    (GenServer.call __MODULE__ [:divide n]))
+    (GenServer.call __MODULE__ {:divide n}))
   
   (defn clear []
     (GenServer.call __MODULE__ :clear))
   
-  (defn get-value []
+  (defn get_value []
     (GenServer.call __MODULE__ :get))
   
-  (defn get-history []
+  (defn get_history []
     (GenServer.call __MODULE__ :history))
   
-  ;; GenServer callbacks
-  (def init [args]
-    {:ok {:value 0 :history []}})
+  ;; GenServer callbacks with complex pattern matching
+  (defn init [state]
+    {:ok state})
   
   ;; Handle add operation
-  (def handle-call [[:add n] _from state]
-    (let [current (:value state)
-          new-value (+ current n)
-          new-state (-> state
-                       (assoc :value new-value)
-                       (update :history conj {:add n new-value}))]
-      {:reply new-value new-state}))
+  (defn handle_call [{:add n} _from {:value current :history history}]
+    (let [new_value (+ current n)
+          operation {:add n :result new_value}
+          new_history (cons operation history)
+          new_state {:value new_value :history new_history}]
+      {:reply new_value new_state}))
   
-  ;; Handle subtract operation
-  (def handle-call [[:subtract n] _from state]
-    (let [current (:value state)
-          new-value (- current n)
-          new-state (-> state
-                       (assoc :value new-value)
-                       (update :history conj {:subtract n new-value}))]
-      {:reply new-value new-state}))
+  ;; Handle subtract operation  
+  (defn handle_call [{:subtract n} _from {:value current :history history}]
+    (let [new_value (- current n)
+          operation {:subtract n :result new_value}
+          new_history (cons operation history)
+          new_state {:value new_value :history new_history}]
+      {:reply new_value new_state}))
   
   ;; Handle multiply operation
-  (def handle-call [[:multiply n] _from state]
-    (let [current (:value state)
-          new-value (* current n)
-          new-state (-> state
-                       (assoc :value new-value)
-                       (update :history conj {:multiply n new-value}))]
-      {:reply new-value new-state}))
+  (defn handle_call [{:multiply n} _from {:value current :history history}]
+    (let [new_value (* current n)
+          operation {:multiply n :result new_value}
+          new_history (cons operation history)
+          new_state {:value new_value :history new_history}]
+      {:reply new_value new_state}))
   
-  ;; Handle divide operation with guard
-  (def handle-call [[:divide n] _from state] :when (!= n 0)
-    (let [current (:value state)
-          new-value (/ current n)
-          new-state (-> state
-                       (assoc :value new-value)
-                       (update :history conj {:divide n new-value}))]
-      {:reply new-value new-state}))
-  
-  ;; Handle divide by zero
-  (def handle-call [[:divide 0] _from state]
-    {:reply {:error "Division by zero"} state})
+  ;; Handle divide operation with zero check
+  (defn handle_call [{:divide n} _from {:value current :history history}]
+    (if (== n 0)
+      {:reply {:error "Division by zero"} {:value current :history history}}
+      (let [new_value (/ current n)
+            operation {:divide n :result new_value}
+            new_history (cons operation history)
+            new_state {:value new_value :history new_history}]
+        {:reply new_value new_state})))
   
   ;; Handle clear operation
-  (def handle-call [:clear _from state]
-    (let [new-state {:value 0 :history (cons {:clear nil 0} (:history state))}]
-      {:reply 0 new-state}))
+  (defn handle_call [:clear _from {:value _current :history history}]
+    (let [new_state {:value 0 :history (cons {:clear :result 0} history)}]
+      {:reply 0 new_state}))
   
   ;; Handle get current value
-  (def handle-call [:get _from state]
-    {:reply (:value state) state})
+  (defn handle_call [:get _from {:value current :history history}]
+    {:reply current {:value current :history history}})
   
-  ;; Handle get history
-  (def handle-call [:history _from state]
-    {:reply (reverse (:history state)) state}))
-"""M
+  ;; Handle get history (history is stored newest-first, return as-is for recent first)
+  (defn handle_call [:history _from {:value current :history history}]
+    {:reply history {:value current :history history}})
+  """
+end
 
-# Mathematical functions module in pure Lisix
+# Mathematical functions module using Lisix
 
-~L"""
-(defmodule LisixMath
-  (import Lisix.Sigil)
+defmodule LisixMath do
+  import Lisix.Sigil
   
-  ;; Factorial with pattern matching
-  (defn factorial [0] 1)
-  (defn factorial [1] 1)
-  (defn factorial [n] :when (> n 1)
-    (* n (factorial (- n 1))))
+  ~L"""
+  ;; Factorial with conditional logic (guards not fully supported yet)
+  (defn factorial [n]
+    (if (<= n 1)
+      1
+      (* n (factorial (- n 1)))))
   
-  ;; Fibonacci with pattern matching
-  (defn fibonacci [0] 0)
-  (defn fibonacci [1] 1)
-  (defn fibonacci [n] :when (> n 1)
-    (+ (fibonacci (- n 1))
-       (fibonacci (- n 2))))
+  ;; Fibonacci with conditional logic
+  (defn fibonacci [n]
+    (if (== n 0)
+      0
+      (if (== n 1)
+        1
+        (+ (fibonacci (- n 1))
+           (fibonacci (- n 2))))))
   
   ;; Power function
-  (defn power [_base 0] 1)
-  (defn power [base exp] :when (> exp 0)
-    (* base (power base (- exp 1))))
-  (defn power [base exp] :when (< exp 0)
-    (/ 1.0 (power base (- exp))))
+  (defn power [base exp]
+    (if (== exp 0)
+      1
+      (if (> exp 0)
+        (* base (power base (- exp 1)))
+        (/ 1.0 (power base (- 0 exp))))))
   
-  ;; Greatest Common Divisor
-  (defn gcd [a 0] a)
-  (defn gcd [a b] :when (> b 0)
-    (gcd b (rem a b)))
+  ;; Greatest Common Divisor using Euclidean algorithm
+  (defn gcd [a b]
+    (if (== b 0)
+      a
+      (gcd b (rem a b))))
   
   ;; Least Common Multiple
   (defn lcm [a b]
     (/ (* a b) (gcd a b)))
   
   ;; Prime number check
-  (defn is-prime? [n] :when (<= n 1)
-    false)
-  (defn is-prime? [2] true)
-  (defn is-prime? [n] :when (> n 2)
-    (not (has-divisor? n 2)))
+  (defn is_prime [n]
+    (if (<= n 1)
+      false
+      (if (== n 2)
+        true
+        (if (== (rem n 2) 0)
+          false
+          (not (has_divisor n 3))))))
   
-  ;; Helper for prime checking
-  (defp has-divisor? [n divisor] :when (> (* divisor divisor) n)
-    false)
-  (defp has-divisor? [n divisor] :when (== (rem n divisor) 0)
-    true)
-  (defp has-divisor? [n divisor]
-    (has-divisor? n (+ divisor 1))))
-"""M
+  ;; Helper for prime checking (private function)
+  (defn has_divisor [n divisor]
+    (if (> (* divisor divisor) n)
+      false
+      (if (== (rem n divisor) 0)
+        true
+        (has_divisor n (+ divisor 2)))))
+  
+  ;; Additional math functions showcasing Lisix capabilities
+  (defn abs [n]
+    (if (< n 0)
+      (- 0 n)
+      n))
+
+  (defn max [a b]
+    (if (> a b) a b))
+
+  (defn min [a b]
+    (if (< a b) a b))
+  """
+end
 
 # Demo the pure Lisix calculator
 IO.puts("Pure Lisix Calculator Demo")
@@ -165,11 +182,11 @@ IO.puts("\nOperation History:")
 Calculator.get_history()
 |> Enum.each(fn operation ->
   case operation do
-    %{add: n, value: result} -> IO.puts("  add #{n} = #{result}")
-    %{subtract: n, value: result} -> IO.puts("  subtract #{n} = #{result}")
-    %{multiply: n, value: result} -> IO.puts("  multiply #{n} = #{result}")
-    %{divide: n, value: result} -> IO.puts("  divide #{n} = #{result}")
-    %{clear: _, value: result} -> IO.puts("  clear = #{result}")
+    %{add: n, result: result} -> IO.puts("  add #{n} = #{result}")
+    %{subtract: n, result: result} -> IO.puts("  subtract #{n} = #{result}")
+    %{multiply: n, result: result} -> IO.puts("  multiply #{n} = #{result}")
+    %{divide: n, result: result} -> IO.puts("  divide #{n} = #{result}")
+    %{clear: _, result: result} -> IO.puts("  clear = #{result}")
     other -> IO.puts("  #{inspect(other)}")
   end
 end)
@@ -205,11 +222,14 @@ IO.puts("power(3, 4)     = #{LisixMath.power(3, 4)}")
 IO.puts("power(2, -3)    = #{LisixMath.power(2, -3)}")
 IO.puts("gcd(48, 18)     = #{LisixMath.gcd(48, 18)}")
 IO.puts("lcm(12, 15)     = #{LisixMath.lcm(12, 15)}")
+IO.puts("abs(-42)        = #{LisixMath.abs(-42)}")
+IO.puts("max(15, 23)     = #{LisixMath.max(15, 23)}")
+IO.puts("min(15, 23)     = #{LisixMath.min(15, 23)}")
 
 # Test prime numbers
 IO.puts("\nPrime number tests:")
 1..20
-|> Enum.filter(&LisixMath.is_prime?/1)
+|> Enum.filter(&LisixMath.is_prime/1)
 |> then(fn primes ->
   IO.puts("Primes 1-20: #{inspect(primes)}")
 end)
@@ -225,5 +245,11 @@ result = Calculator.add(100)
 
 IO.puts("((((0 + 100) * 2) - 50) / 5) = #{result}")
 
-IO.puts("\n🎉 Pure Lisix Calculator completed successfully!")
-IO.puts("Every function and module is defined in authentic Lisp syntax!")
+IO.puts("\n🎉 Enhanced Lisix Calculator completed successfully!")
+IO.puts("✅ All client API functions defined in authentic Lisp syntax!")
+IO.puts("✅ GenServer callbacks with complex tuple pattern matching!")
+IO.puts("✅ Map destructuring in function parameters!")
+IO.puts("✅ Conditional logic and comparison operators working!")
+IO.puts("✅ Mathematical functions with recursive algorithms!")
+IO.puts("✅ History tracking with immutable data structures!")
+IO.puts("✅ Error handling for edge cases like division by zero!")
